@@ -42,12 +42,12 @@ public class MainActivity extends AppCompatActivity {
 
         confirm_button.setOnClickListener(v -> {
             String codeValue = code.getText().toString();
-            String email = email_address.getText().toString();
+            String emails = email_address.getText().toString(); // Single string with comma-separated emails
 
             // Log for debugging
-            Log.d("EmailApp", "Email: " + email + ", Code: " + codeValue);
+            Log.d("EmailApp", "Emails: " + emails + ", Code: " + codeValue);
 
-            if (!email.isEmpty()) {
+            if (!emails.isEmpty()) {
                 confirm_button.setText("Confirming");
                 email_address.setAlpha(0.5f);
                 email_address.setEnabled(false);
@@ -58,16 +58,18 @@ public class MainActivity extends AppCompatActivity {
             if (!codeValue.isEmpty()) {
                 header_title.setText("Confirmation code: " + codeValue);
                 code.setVisibility(View.GONE);
-                sendEmail(email, "Your confirmation code is: " + codeValue);
+
+                // Split the comma-separated emails and send them
+                sendEmail(emails.split(","), "Your confirmation code is: " + codeValue);
             }
         });
     }
 
-    private void sendEmail(String emailAddress, String message) {
+    private void sendEmail(String[] emailAddresses, String message) {
         // Create an email intent with ACTION_SEND
         Intent emailIntent = new Intent(Intent.ACTION_SEND);
-        emailIntent.setType("message/rfc822"); // This ensures that only email clients handle this intent
-        emailIntent.putExtra(Intent.EXTRA_EMAIL, new String[]{emailAddress});
+        emailIntent.setType("message/rfc822"); // Ensures that only email clients handle this intent
+        emailIntent.putExtra(Intent.EXTRA_EMAIL, emailAddresses);
         emailIntent.putExtra(Intent.EXTRA_SUBJECT, "Confirmation Code");
         emailIntent.putExtra(Intent.EXTRA_TEXT, message);
 
