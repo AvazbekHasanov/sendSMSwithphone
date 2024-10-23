@@ -50,11 +50,11 @@
 
             <!-- Input for Phone Number -->
             <EditText
-                android:id="@+id/phone_number"
+                android:id="@+id/email_address"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:hint="Enter your phone number"
-                android:inputType="phone"
+                android:inputType="textEmailAddress"
                 android:padding="10dp"
                 android:layout_marginBottom="10dp"
                 android:background="#EEEEEE"
