@@ -1,110 +1,149 @@
 package com.example.verificationauth;
 
-import android.annotation.SuppressLint;
-import android.content.Intent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.os.Bundle;
-import android.text.Html;
-import android.net.Uri;
-
-
-
-import android.util.Log;
-import android.view.View;
+import android.text.InputType;
+import android.util.Base64;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
+import android.app.AlertDialog;
+
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 public class MainActivity extends AppCompatActivity {
 
-    private TextView header_title;
-    private Button confirm_button;
-    private TextView code;
-    private EditText email_address;
+    private EditText inputText;
+    private TextView outputText;
+    private String lastResult = ""; // Store the last encoded/decoded result
 
-    @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-            return insets;
+        // Initialize views
+        inputText = findViewById(R.id.inputText);
+        outputText = findViewById(R.id.outputText);
+        Button encodeButton = findViewById(R.id.encodeButton);
+        Button decodeButton = findViewById(R.id.decodeButton);
+        Button moveLetterButton = findViewById(R.id.moveLetterButton);
+        ImageView copyButton = findViewById(R.id.imageView);
+
+        // Set click listeners for Base64 encoding/decoding
+        encodeButton.setOnClickListener(v -> {
+            String input = inputText.getText().toString().trim();
+            if (input.isEmpty()) {
+                showToast("Please enter text to encode.");
+                return;
+            }
+            String encodedText = encodeBase64(input);
+            lastResult = encodedText;
+            outputText.setText(encodedText);
         });
 
-        header_title = findViewById(R.id.header_title);
-        confirm_button = findViewById(R.id.confirm_button);
-        code = findViewById(R.id.code);
-        email_address = findViewById(R.id.email_address);
-
-        confirm_button.setOnClickListener(v -> {
-            String codeValue = code.getText().toString();
-            String emails = email_address.getText().toString(); // Single string with comma-separated emails
-
-            // Log for debugging
-            Log.d("EmailApp", "Emails: " + emails + ", Code: " + codeValue);
-
-            if (!emails.isEmpty()) {
-                confirm_button.setText("Confirming");
-                email_address.setAlpha(0.5f);
-                email_address.setEnabled(false);
-                email_address.setFocusable(false);
-                code.setVisibility(View.VISIBLE);
+        decodeButton.setOnClickListener(v -> {
+            String input = inputText.getText().toString().trim();
+            if (input.isEmpty()) {
+                showToast("Please enter text to decode.");
+                return;
             }
+            try {
+                String decodedText = decodeBase64(input);
+                lastResult = decodedText;
+                outputText.setText(decodedText);
+            } catch (IllegalArgumentException e) {
+                showToast("Invalid Base64 input.");
+            }
+        });
 
-            if (!codeValue.isEmpty()) {
-                header_title.setText("Confirmation code: " + codeValue);
-                code.setVisibility(View.GONE);
+        // Set click listener for "Move Letters"
+        moveLetterButton.setOnClickListener(v -> showMoveLetterDialog());
 
-                // Split the comma-separated emails and send them
-                sendEmail(emails.split(","), generateEmailMessage(codeValue));
+        // Copy result to clipboard
+        copyButton.setOnClickListener(v -> {
+            if (!lastResult.isEmpty()) {
+                copyToClipboard(lastResult);
+                showToast("Text copied to clipboard.");
+            } else {
+                showToast("Nothing to copy.");
             }
         });
     }
 
-    // Method to generate a beautiful HTML email message
-    private String generateEmailMessage(String discountCode) {
-        return "<html>" +
-                "<body style=\"font-family: Arial, sans-serif; color: #333;\">" +
-                "<h2 style=\"color: #4CAF50;\">Exclusive Discount Just for You!</h2>" +
-                "<p>Hello,</p>" +
-                "<p>We're excited to offer you an exclusive <strong>20% discount</strong> on your next purchase!</p>" +
-                "<p>Use the following discount code at checkout to save:</p>" +
-                "<h3 style=\"color: #d91616; font-size: 24px;\">" + discountCode + "</h3>" +
-                "<p style=\"font-size: 16px;\">Hurry up! This offer is valid for a limited time only.</p>" +
-                "<p>Thanks for being a valued customer!</p>" +
-                "<p><em>Best regards,</em></p>" +
-                "<p><strong>Your Company Name</strong></p>" +
-                "</body>" +
-                "</html>";
+    private void showMoveLetterDialog() {
+        // Create an EditText for user input
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        input.setHint("Enter number of characters to move");
+
+        // Build the dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Move Letters")
+                .setMessage("How many characters do you want to move?")
+                .setView(input)
+                .setPositiveButton("OK", (dialog, which) -> {
+                    String value = input.getText().toString();
+                    if (!value.isEmpty()) {
+                        int moveBy = Integer.parseInt(value);
+                        String originalText = inputText.getText().toString();
+                        if (!originalText.isEmpty()) {
+                            String movedText = moveCharacters(originalText, moveBy);
+                            outputText.setText(movedText);
+                            lastResult = movedText;
+                        } else {
+                            showToast("Input text is empty!");
+                        }
+                    } else {
+                        showToast("Please enter a valid number!");
+                    }
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+        builder.create().show();
     }
 
+    // Base64 Encoding Method
+    private String encodeBase64(String text) {
+        return Base64.encodeToString(text.getBytes(), Base64.DEFAULT).trim();
+    }
 
-    private void sendEmail(String[] emailAddresses, String message) {
-        // Create the intent with ACTION_SENDTO for sending an email
-        Intent emailIntent = new Intent(Intent.ACTION_SENDTO);
-        emailIntent.setData(Uri.parse("mailto:")); // Only email apps should handle this
+    // Base64 Decoding Method
+    private String decodeBase64(String encodedText) {
+        byte[] decodedBytes = Base64.decode(encodedText, Base64.DEFAULT);
+        return new String(decodedBytes).trim();
+    }
 
-        // Add the recipients and subject
-        emailIntent.putExtra(Intent.EXTRA_EMAIL, emailAddresses);
-        emailIntent.putExtra(Intent.EXTRA_SUBJECT, "Exclusive Discount Just for You!");
-
-        // Use HTML for the email body content
-        emailIntent.putExtra(Intent.EXTRA_TEXT, Html.fromHtml(message, Html.FROM_HTML_MODE_LEGACY)); // Converts the HTML string to a format the email client can understand
-
-        try {
-            // Open the email client chooser
-            startActivity(Intent.createChooser(emailIntent, "Send email..."));
-        } catch (android.content.ActivityNotFoundException ex) {
-            // Handle error if no email client is installed
+    // Move Characters Method
+    private String moveCharacters(String text, int moveBy) {
+        StringBuilder result = new StringBuilder();
+        for (char c : text.toCharArray()) {
+            if (Character.isLetter(c)) {
+                char base = Character.isUpperCase(c) ? 'A' : 'a';
+                int offset = (c - base + moveBy) % 26; // Wrap within alphabet range
+                if (offset < 0) offset += 26; // Handle negative wrap
+                result.append((char) (base + offset));
+            } else {
+                result.append(c); // Keep non-letters unchanged
+            }
         }
+        return result.toString();
+    }
+
+    // Copy text to clipboard
+    private void copyToClipboard(String text) {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText("Encoded/Decoded Text", text);
+        clipboard.setPrimaryClip(clip);
+    }
+
+    // Show a toast message
+    private void showToast(String message) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 }
